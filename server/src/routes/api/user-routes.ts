@@ -1,5 +1,4 @@
 import express from "express";
-const router = express.Router();
 import {
   createUser,
   getSingleUser,
@@ -8,34 +7,15 @@ import {
   login,
 } from "../../controllers/user-controller.js";
 
-// import middleware
 import { authenticateToken } from "../../services/auth.js";
 
-// put authMiddleware anywhere we need to send a token for verification of user
-router.route("/").post(createUser).put(authenticateToken, saveBook);
+const router = express.Router();
 
-router.route("/login").post(login);
-
-router.route("/me").get(
-  authenticateToken,
-  (req, res, next) => {
-    if (!req.user) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-    next();
-  },
-  getSingleUser
-);
-
-router.route("/books/:bookId").delete(
-  authenticateToken,
-  (req, res, next) => {
-    if (!req.user) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-    next();
-  },
-  deleteBook
-);
+// ✅ No need for explicit type casting anymore
+router.post("/", createUser);
+router.post("/login", login);
+router.get("/me", authenticateToken, getSingleUser);
+router.put("/", authenticateToken, saveBook);
+router.delete("/:bookId", authenticateToken, deleteBook);
 
 export default router;

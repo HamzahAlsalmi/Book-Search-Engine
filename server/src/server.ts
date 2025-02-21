@@ -1,4 +1,4 @@
-import express from "express";
+import express, { Application, Request } from "express";
 import { ApolloServer } from "apollo-server-express";
 import mongoose from "mongoose";
 import path from "node:path";
@@ -9,36 +9,37 @@ import { authMiddleware } from "./services/auth";
 
 dotenv.config();
 
-const app = express();
+const app: Application = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// Initialize Apollo Server
 const server = new ApolloServer({
   typeDefs,
   resolvers,
-  context: ({ req }) => authMiddleware(req), // Pass only req for GraphQL
+  context: ({ req }: { req: Request }) => {
+    const modifiedReq = authMiddleware(req) as Request; // ✅ Ensure it remains a Request
+
+    return { user: modifiedReq?.user || null }; // ✅ Safe access to user
+  },
 });
 
 async function startServer() {
   await server.start();
-  server.applyMiddleware({ app });
+  server.applyMiddleware({ app: app as any }); // ✅ Type override for Apollo
 
-  // MongoDB connection
-  mongoose.connect(
-    process.env.MONGODB_URI || "mongodb://localhost/googlebooks"
-  );
-
-  mongoose.connection.once("open", () => {
-    console.log("🚀 Connected to MongoDB");
-    app.listen(PORT, () => {
-      console.log(
-        `🌍 Server running at http://localhost:${PORT}${server.graphqlPath}`
-      );
-    });
-  });
+  mongoose
+    .connect(process.env.MONGODB_URI || "mongodb://localhost/googlebooks")
+    .then(() => {
+      console.log("🚀 Connected to MongoDB");
+      app.listen(PORT, () => {
+        console.log(
+          `🌍 Server running at http://localhost:${PORT}${server.graphqlPath}`
+        );
+      });
+    })
+    .catch((error) => console.error("❌ MongoDB Connection Error:", error));
 }
 
 // Serve static assets in production

@@ -1,5 +1,5 @@
 import { AuthenticationError } from "apollo-server-express";
-import User from "../models/User";
+import User, { IUser } from "../models/User"; // ✅ Ensure IUser is imported
 import { signToken } from "../services/auth";
 
 const resolvers = {
@@ -21,11 +21,22 @@ const resolvers = {
       _parent: any,
       { email, password }: { email: string; password: string }
     ) => {
-      const user = await User.findOne({ email });
-      if (!user || !(await user.isCorrectPassword(password))) {
+      const user: IUser | null = await User.findOne({ email });
+
+      if (!user) {
         throw new AuthenticationError("Incorrect credentials");
       }
-      const token = signToken(user.username, user.email, user._id.toString());
+
+      // ✅ Explicitly check `isCorrectPassword`
+      const isMatch = await user.isCorrectPassword(password);
+      if (!isMatch) {
+        throw new AuthenticationError("Incorrect credentials");
+      }
+
+      // ✅ Fix `_id` unknown error
+      const userId = user._id.toString();
+      const token = signToken(user.username, user.email, userId);
+
       return { token, user };
     },
 
@@ -37,8 +48,11 @@ const resolvers = {
         password,
       }: { username: string; email: string; password: string }
     ) => {
-      const user = await User.create({ username, email, password });
-      const token = signToken(user.username, user.email, user._id.toString());
+      const user: IUser = await User.create({ username, email, password });
+
+      const userId = user._id.toString();
+      const token = signToken(user.username, user.email, userId);
+
       return { token, user };
     },
 

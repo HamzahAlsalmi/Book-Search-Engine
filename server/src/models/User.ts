@@ -1,68 +1,59 @@
-import { Schema, model, type Document } from 'mongoose';
-import bcrypt from 'bcrypt';
+import mongoose, { Document, Schema, Model } from "mongoose";
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 
-// import schema from Book.js
-import bookSchema from './Book.js';
-import type { BookDocument } from './Book.js';
-
-export interface UserDocument extends Document {
-  id: string;
+// Define User Interface
+export interface IUser extends Document {
+  _id: mongoose.Types.ObjectId; // ✅ Use ObjectId type instead of string
   username: string;
   email: string;
   password: string;
-  savedBooks: BookDocument[];
-  isCorrectPassword(password: string): Promise<boolean>;
-  bookCount: number;
+  savedBooks: Array<{ bookId: string; title: string; authors: string[] }>;
+  isCorrectPassword(candidatePassword: string): Promise<boolean>;
+  generateAuthToken(): string;
 }
 
-const userSchema = new Schema<UserDocument>(
-  {
-    username: {
-      type: String,
-      required: true,
-      unique: true,
+// Define Schema
+const UserSchema: Schema<IUser> = new Schema({
+  username: { type: String, required: true },
+  email: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+  savedBooks: [
+    {
+      bookId: { type: String, required: true },
+      title: { type: String, required: true },
+      authors: [{ type: String }],
     },
-    email: {
-      type: String,
-      required: true,
-      unique: true,
-      match: [/.+@.+\..+/, 'Must use a valid email address'],
-    },
-    password: {
-      type: String,
-      required: true,
-    },
-    // set savedBooks to be an array of data that adheres to the bookSchema
-    savedBooks: [bookSchema],
-  },
-  // set this to use virtual below
-  {
-    toJSON: {
-      virtuals: true,
-    },
-  }
-);
+  ],
+});
 
-// hash user password
-userSchema.pre('save', async function (next) {
-  if (this.isNew || this.isModified('password')) {
-    const saltRounds = 10;
-    this.password = await bcrypt.hash(this.password, saltRounds);
-  }
-
+// Hash password before saving
+UserSchema.pre<IUser>("save", async function (next) {
+  if (!this.isModified("password")) return next();
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
   next();
 });
 
-// custom method to compare and validate password for logging in
-userSchema.methods.isCorrectPassword = async function (password: string) {
-  return await bcrypt.compare(password, this.password);
+// ✅ Rename `comparePassword` to `isCorrectPassword`
+UserSchema.methods.isCorrectPassword = async function (
+  candidatePassword: string
+): Promise<boolean> {
+  return await bcrypt.compare(candidatePassword, this.password);
 };
 
-// when we query a user, we'll also get another field called `bookCount` with the number of saved books we have
-userSchema.virtual('bookCount').get(function () {
-  return this.savedBooks.length;
-});
+// ✅ Generate Auth Token (convert `_id` to string)
+UserSchema.methods.generateAuthToken = function (): string {
+  return jwt.sign(
+    { id: this._id.toString(), email: this.email, username: this.username }, // ✅ Convert `_id` to string
+    process.env.JWT_SECRET || "default_secret",
+    {
+      expiresIn: "1h",
+    }
+  );
+};
 
-const User = model<UserDocument>('User', userSchema);
+// Create User Model
+const User: Model<IUser> = mongoose.model<IUser>("User", UserSchema);
 
 export default User;

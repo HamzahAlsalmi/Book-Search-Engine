@@ -1,93 +1,126 @@
-import type { Request, Response } from "express";
-// import user model
-import User from "../models/User.js";
-// import sign token function from auth
-import { signToken } from "../services/auth.js";
+import { Request, Response, NextFunction } from "express";
+import User, { IUser } from "../models/User.js"; // Ensure correct import
 
-// get a single user by either their id or their username
-export const getSingleUser = async (req: Request, res: Response) => {
-  if (!req.user) {
-    return res.status(401).json({ message: "Unauthorized" });
-  }
+// Define Type for Async Request Handlers
+type AsyncRequestHandler = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => Promise<void>;
 
-  const foundUser = await User.findOne({
-    $or: [{ _id: req.user._id.toString() }, { username: req.params.username }],
-  });
-
-  if (!foundUser) {
-    return res
-      .status(400)
-      .json({ message: "Cannot find a user with this id!" });
-  }
-
-  return res.json(foundUser);
-};
-
-// create a user, sign a token, and send it back (to client/src/components/SignUpForm.js)
-export const createUser = async (req: Request, res: Response) => {
-  const user = await User.create(req.body);
-
-  if (!user) {
-    return res.status(400).json({ message: "Something is wrong!" });
-  }
-  const token = signToken(user.username, user.email, user._id.toString());
-  return res.json({ token, user });
-};
-
-// login a user, sign a token, and send it back (to client/src/components/LoginForm.js)
-// {body} is destructured req.body
-export const login = async (req: Request, res: Response) => {
-  const user = await User.findOne({
-    $or: [{ username: req.body.username }, { email: req.body.email }],
-  });
-  if (!user) {
-    return res.status(400).json({ message: "Can't find this user" });
-  }
-
-  const correctPw = await user.isCorrectPassword(req.body.password);
-
-  if (!correctPw) {
-    return res.status(400).json({ message: "Wrong password!" });
-  }
-  const token = signToken(user.username, user.email, user._id.toString());
-  return res.json({ token, user });
-};
-
-// save a book to a user's `savedBooks` field by adding it to the set (to prevent duplicates)
-// user comes from `req.user` created in the auth middleware function
-export const saveBook = async (req: Request, res: Response) => {
-  if (!req.user) {
-    return res.status(401).json({ message: "Unauthorized" });
-  }
-
+// ✅ Create a new user
+export const createUser: AsyncRequestHandler = async (req, res, next) => {
   try {
-    const updatedUser = await User.findOneAndUpdate(
-      { _id: req.user._id.toString() },
-      { $addToSet: { savedBooks: req.body } },
-      { new: true, runValidators: true }
-    );
-    return res.json(updatedUser);
-  } catch (err) {
-    console.log(err);
-    return res.status(400).json(err);
+    const { username, email, password } = req.body;
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      res.status(400).json({ message: "User already exists" });
+      return;
+    }
+
+    // Create and save new user
+    const newUser = new User({ username, email, password });
+    await newUser.save();
+
+    res
+      .status(201)
+      .json({ message: "User created successfully", user: newUser });
+  } catch (error) {
+    next(error);
   }
 };
 
-// remove a book from `savedBooks`
-export const deleteBook = async (req: Request, res: Response) => {
-  if (!req.user) {
-    return res.status(401).json({ message: "Unauthorized" });
-  }
+// ✅ Get a single user
+export const getSingleUser: AsyncRequestHandler = async (req, res, next) => {
+  try {
+    if (!req.user || !req.user._id) {
+      res.status(401).json({ message: "Unauthorized" });
+      return;
+    }
 
-  const updatedUser = await User.findOneAndUpdate(
-    { _id: req.user._id.toString() },
-    { $pull: { savedBooks: { bookId: req.params.bookId } } },
-    { new: true }
-  );
-  if (!updatedUser) {
-    return res
-      .status(404)
-      .json({ message: "Couldn't find user with this id!" });
+    const user: IUser | null = await User.findById(req.user._id.toString()); // ✅ Ensure `_id` is a string
+    if (!user) {
+      res.status(404).json({ message: "User not found" });
+      return;
+    }
+
+    res.status(200).json(user);
+  } catch (error) {
+    next(error);
   }
-  return res.json(updatedUser);
+};
+
+// ✅ Save a book to user's account
+export const saveBook: AsyncRequestHandler = async (req, res, next) => {
+  try {
+    if (!req.user || !req.user._id) {
+      res.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
+    const user: IUser | null = await User.findById(req.user._id.toString());
+    if (!user) {
+      res.status(404).json({ message: "User not found" });
+      return;
+    }
+
+    user.savedBooks.push(req.body);
+    await user.save();
+
+    res.status(200).json({ message: "Book saved successfully", user });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ✅ Delete a book from user's saved books
+export const deleteBook: AsyncRequestHandler = async (req, res, next) => {
+  try {
+    if (!req.user || !req.user._id) {
+      res.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
+    const user: IUser | null = await User.findById(req.user._id.toString());
+    if (!user) {
+      res.status(404).json({ message: "User not found" });
+      return;
+    }
+
+    user.savedBooks = user.savedBooks.filter(
+      (book) => book.bookId !== req.params.bookId
+    );
+    await user.save();
+
+    res.status(200).json({ message: "Book removed successfully", user });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ✅ User login
+export const login: AsyncRequestHandler = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+    const user: IUser | null = await User.findOne({ email }); // ✅ Explicitly typed
+
+    if (!user) {
+      res.status(400).json({ message: "Invalid email or password" });
+      return;
+    }
+
+    // ✅ Use `isCorrectPassword` instead of `comparePassword`
+    const isMatch = await user.isCorrectPassword(password);
+    if (!isMatch) {
+      res.status(400).json({ message: "Invalid email or password" });
+      return;
+    }
+
+    const token = user.generateAuthToken();
+    res.status(200).json({ token, user });
+  } catch (error) {
+    next(error);
+  }
 };
