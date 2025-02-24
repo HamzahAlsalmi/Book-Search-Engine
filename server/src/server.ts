@@ -3,9 +3,9 @@ import { ApolloServer } from "apollo-server-express";
 import mongoose from "mongoose";
 import path from "node:path";
 import dotenv from "dotenv";
-import typeDefs from "./schemas/typeDefs";
-import resolvers from "./schemas/resolvers";
-import { authMiddleware } from "./services/auth";
+import typeDefs from "./schemas/typeDefs.js";
+import resolvers from "./schemas/resolvers.js";
+import { authMiddleware } from "./services/auth.js";
 
 dotenv.config();
 

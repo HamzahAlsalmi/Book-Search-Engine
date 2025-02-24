@@ -1,6 +1,6 @@
 import { AuthenticationError } from "apollo-server-express";
-import User from "../models/User"; // ✅ Ensure IUser is imported
-import { signToken } from "../services/auth";
+import User from "../models/User.js"; // ✅ Ensure IUser is imported
+import { signToken } from "../services/auth.js";
 const resolvers = {
     Query: {
         me: async (_parent, _args, context) => {
