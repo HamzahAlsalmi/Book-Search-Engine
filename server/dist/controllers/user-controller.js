@@ -1,16 +1,22 @@
-import User from "../models/User.js"; // Ensure correct import
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.login = exports.deleteBook = exports.saveBook = exports.getSingleUser = exports.createUser = void 0;
+const User_js_1 = __importDefault(require("../models/User.js")); // Ensure correct import
 // ✅ Create a new user
-export const createUser = async (req, res, next) => {
+const createUser = async (req, res, next) => {
     try {
         const { username, email, password } = req.body;
         // Check if user already exists
-        const existingUser = await User.findOne({ email });
+        const existingUser = await User_js_1.default.findOne({ email });
         if (existingUser) {
             res.status(400).json({ message: "User already exists" });
             return;
         }
         // Create and save new user
-        const newUser = new User({ username, email, password });
+        const newUser = new User_js_1.default({ username, email, password });
         await newUser.save();
         res
             .status(201)
@@ -20,14 +26,15 @@ export const createUser = async (req, res, next) => {
         next(error);
     }
 };
+exports.createUser = createUser;
 // ✅ Get a single user
-export const getSingleUser = async (req, res, next) => {
+const getSingleUser = async (req, res, next) => {
     try {
         if (!req.user || !req.user._id) {
             res.status(401).json({ message: "Unauthorized" });
             return;
         }
-        const user = await User.findById(req.user._id.toString()); // ✅ Ensure `_id` is a string
+        const user = await User_js_1.default.findById(req.user._id.toString()); // ✅ Ensure `_id` is a string
         if (!user) {
             res.status(404).json({ message: "User not found" });
             return;
@@ -38,14 +45,15 @@ export const getSingleUser = async (req, res, next) => {
         next(error);
     }
 };
+exports.getSingleUser = getSingleUser;
 // ✅ Save a book to user's account
-export const saveBook = async (req, res, next) => {
+const saveBook = async (req, res, next) => {
     try {
         if (!req.user || !req.user._id) {
             res.status(401).json({ message: "Unauthorized" });
             return;
         }
-        const user = await User.findById(req.user._id.toString());
+        const user = await User_js_1.default.findById(req.user._id.toString());
         if (!user) {
             res.status(404).json({ message: "User not found" });
             return;
@@ -58,14 +66,15 @@ export const saveBook = async (req, res, next) => {
         next(error);
     }
 };
+exports.saveBook = saveBook;
 // ✅ Delete a book from user's saved books
-export const deleteBook = async (req, res, next) => {
+const deleteBook = async (req, res, next) => {
     try {
         if (!req.user || !req.user._id) {
             res.status(401).json({ message: "Unauthorized" });
             return;
         }
-        const user = await User.findById(req.user._id.toString());
+        const user = await User_js_1.default.findById(req.user._id.toString());
         if (!user) {
             res.status(404).json({ message: "User not found" });
             return;
@@ -78,11 +87,12 @@ export const deleteBook = async (req, res, next) => {
         next(error);
     }
 };
+exports.deleteBook = deleteBook;
 // ✅ User login
-export const login = async (req, res, next) => {
+const login = async (req, res, next) => {
     try {
         const { email, password } = req.body;
-        const user = await User.findOne({ email }); // ✅ Explicitly typed
+        const user = await User_js_1.default.findOne({ email }); // ✅ Explicitly typed
         if (!user) {
             res.status(400).json({ message: "Invalid email or password" });
             return;
@@ -100,3 +110,4 @@ export const login = async (req, res, next) => {
         next(error);
     }
 };
+exports.login = login;

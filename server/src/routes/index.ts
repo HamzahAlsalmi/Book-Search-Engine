@@ -1,18 +1,17 @@
-import type { Request, Response } from 'express';
-import express from 'express';
+import type { Request, Response } from "express";
+import express from "express";
 const router = express.Router();
 
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-import apiRoutes from './api/index.js';
+import path from "path";
+const __dirname = path.resolve(); // ✅ CommonJS fix
 
-router.use('/api', apiRoutes);
+import apiRoutes from "./api/index.js";
 
-// serve up react front-end in production
+router.use("/api", apiRoutes);
+
+// Serve up React front-end in production
 router.use((_req: Request, res: Response) => {
-  res.sendFile(path.join(__dirname, '../../client/build/index.html'));
+  res.sendFile(path.join(__dirname, "../../client/build/index.html"));
 });
 
 export default router;

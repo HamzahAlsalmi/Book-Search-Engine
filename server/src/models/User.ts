@@ -1,10 +1,10 @@
-import mongoose, { Document, Schema, Model } from "mongoose";
+import mongoose, { Document, Schema, Model, CallbackError } from "mongoose"; // ✅ Import `CallbackError`
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
 // Define User Interface
 export interface IUser extends Document {
-  _id: mongoose.Types.ObjectId; // ✅ Use ObjectId type instead of string
+  _id: mongoose.Types.ObjectId;
   username: string;
   email: string;
   password: string;
@@ -27,29 +27,41 @@ const UserSchema: Schema<IUser> = new Schema({
   ],
 });
 
-// Hash password before saving
-UserSchema.pre<IUser>("save", async function (next) {
-  if (!this.isModified("password")) return next();
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
-  next();
-});
+// ✅ Fix Type Error in `pre("save")`
+UserSchema.pre<IUser>(
+  "save",
+  async function (next: (err?: CallbackError) => void) {
+    if (!this.isModified("password")) return next();
 
-// ✅ Rename `comparePassword` to `isCorrectPassword`
+    try {
+      const salt = await bcrypt.genSalt(10);
+      this.password = await bcrypt.hash(this.password, salt);
+      next(); // ✅ Call next() without an error
+    } catch (error) {
+      console.error("❌ Error hashing password:", error);
+      next(error as CallbackError); // ✅ Ensure next() receives a valid error type
+    }
+  }
+);
+
+// ✅ Compare passwords safely
 UserSchema.methods.isCorrectPassword = async function (
   candidatePassword: string
 ): Promise<boolean> {
-  return await bcrypt.compare(candidatePassword, this.password);
+  try {
+    return await bcrypt.compare(candidatePassword, this.password);
+  } catch (error) {
+    console.error("❌ Error comparing password:", error);
+    return false;
+  }
 };
 
-// ✅ Generate Auth Token (convert `_id` to string)
+// ✅ Generate Auth Token
 UserSchema.methods.generateAuthToken = function (): string {
   return jwt.sign(
-    { id: this._id.toString(), email: this.email, username: this.username }, // ✅ Convert `_id` to string
+    { id: this._id.toString(), email: this.email, username: this.username },
     process.env.JWT_SECRET || "default_secret",
-    {
-      expiresIn: "1h",
-    }
+    { expiresIn: "1h" }
   );
 };
 

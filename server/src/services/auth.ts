@@ -1,4 +1,4 @@
-import type { Request, Response, NextFunction } from "express";
+import { Request, Response, NextFunction } from "express";
 import jwt, { JwtPayload as DefaultJwtPayload } from "jsonwebtoken";
 import dotenv from "dotenv";
 
@@ -11,53 +11,48 @@ export interface JwtPayload extends DefaultJwtPayload {
   email: string;
 }
 
-// ✅ Extend Express Request Type to Include Custom JWT
-declare module "express" {
-  interface Request {
-    user?: JwtPayload;
-  }
-}
-
-// Middleware for Authentication
-export const authMiddleware = (
-  req: Request,
-  res?: Response,
-  next?: NextFunction
+// ✅ Middleware to Authenticate Token for Express Routes
+export const authenticateToken = (
+  _req: Request,
+  _res: Response,
+  next: NextFunction
 ) => {
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader) {
-    if (next) return next();
-    return req;
-  }
-
-  const token = authHeader.split(" ")[1];
-  const secretKey = process.env.JWT_SECRET_KEY || "default_secret";
-
-  try {
-    const decoded = jwt.verify(token, secretKey) as JwtPayload; // ✅ Ensure correct type
-    req.user = decoded; // ✅ Directly assign decoded JWT
-  } catch (err) {
-    console.error("Invalid token:", err);
-    if (next)
-      return res?.status(403).json({ message: "Invalid or expired token" });
-  }
-
-  if (next) return next();
-  return req;
+  console.log("🔍 Middleware authenticateToken is being called.");
+  next(); // Allow request to continue
 };
 
+// ✅ Middleware for Apollo GraphQL Context
+export const authContext = async ({ req }: { req: Request }) => {
+  console.log("📌 Inside authContext function!"); // Debugging log
+  const authHeader = req.headers.authorization || "";
+  console.log("🔍 Received Authorization Header:", authHeader); // Debugging log
+
+  if (!authHeader.startsWith("Bearer ")) {
+    console.log("❌ No Bearer token found in headers");
+    return { user: null };
+  }
+
+  const token = authHeader.split(" ")[1]; // Extract token after "Bearer "
+  if (!token) {
+    console.log("❌ No token found after 'Bearer'");
+    return { user: null };
+  }
+
+  const secretKey = process.env.JWT_SECRET_KEY || "default_secret";
+  try {
+    const decoded = jwt.verify(token, secretKey) as JwtPayload;
+    console.log("✅ Decoded Token Payload:", decoded);
+    return { user: decoded }; // Return user object in context
+  } catch (err) {
+    console.error("❌ Invalid token:", err);
+    return { user: null };
+  }
+};
+
+// ✅ Function to Sign JWT Tokens
 export const signToken = (username: string, email: string, id: string) => {
-  const payload: JwtPayload = { id, username, email }; // ✅ Explicitly define payload type
+  const payload: JwtPayload = { id, username, email };
   const secretKey = process.env.JWT_SECRET_KEY || "default_secret";
 
   return jwt.sign(payload, secretKey, { expiresIn: "1h" });
-};
-
-export const authenticateToken = (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  authMiddleware(req, res, next);
 };

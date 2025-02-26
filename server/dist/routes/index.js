@@ -1,13 +1,16 @@
-import express from 'express';
-const router = express.Router();
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-import apiRoutes from './api/index.js';
-router.use('/api', apiRoutes);
-// serve up react front-end in production
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = __importDefault(require("express"));
+const router = express_1.default.Router();
+const path_1 = __importDefault(require("path"));
+const __dirname = path_1.default.resolve(); // ✅ CommonJS fix
+const index_js_1 = __importDefault(require("./api/index.js"));
+router.use("/api", index_js_1.default);
+// Serve up React front-end in production
 router.use((_req, res) => {
-    res.sendFile(path.join(__dirname, '../../client/build/index.html'));
+    res.sendFile(path_1.default.join(__dirname, "../../client/build/index.html"));
 });
-export default router;
+exports.default = router;
